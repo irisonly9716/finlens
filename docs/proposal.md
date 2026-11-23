@@ -16,5 +16,3 @@ User Stories:
 6. As an investor, I want a short summary of recent events with a source for every claim, so that I can catch up quickly and still check everything.
 7. As a signed-in investor, I want a private watchlist that tells me what changed since my last visit, so that I don't have to check every company by hand.
 8. As the site admin, I want to see data-quality problems and fix how a metric is mapped for a company, so that wrong numbers don't reach users.
-
-How it differs from my earlier projects: P1 was an ADHD study planner (a Claude artifact) and P2 (CommonPot) was shared household expense tracking. FinLens is public-company financial analysis with real public data: a different problem, different users and a different data source.
