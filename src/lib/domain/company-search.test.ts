@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import fixture from "./__fixtures__/company-tickers.json";
+import {
+  buildCompanyIndex,
+  padCik,
+  searchCompanies,
+  type CompanyEntry,
+  type TickerRow,
+} from "./company-search";
+
+// The fixture is a 15-row excerpt of https://www.sec.gov/files/company_tickers.json
+// (keys and order as in the SEC file). Map it to the domain's TickerRow shape.
+const fixtureRows: TickerRow[] = Object.values(fixture).map((r) => ({
+  cik: r.cik_str,
+  ticker: r.ticker,
+  name: r.title,
+}));
+const index = buildCompanyIndex(fixtureRows);
+
+function exactTicker(query: string): CompanyEntry | null {
+  const result = searchCompanies(index, query);
+  return result.kind === "exact" ? result.company : null;
+}
+
+describe("F1-1 ticker lookup", () => {
+  it("F1-1: padCik pads the CIK to 10 digits", () => {
+    expect(padCik(320193)).toBe("0000320193");
+    expect(padCik(6951)).toBe("0000006951");
+    expect(padCik(1234567890)).toBe("1234567890");
+  });
+
+  it("F1-1: ticker match is case-insensitive and resolves to the CIK", () => {
+    for (const query of ["AAPL", "aapl", "AaPl", "  aapl  "]) {
+      const company = exactTicker(query);
+      expect(company?.ticker).toBe("AAPL");
+      expect(company?.cik).toBe("0000320193");
+      expect(company?.name).toBe("Apple Inc.");
+    }
+  });
+
+  it("F1-1: ignores punctuation and spaces (BRK.B, brk b, BRK-B, brkb → BRK-B)", () => {
+    for (const query of ["BRK.B", "brk b", "BRK-B", "brkb", "brk/b"]) {
+      const company = exactTicker(query);
+      expect(company?.ticker).toBe("BRK-B");
+      expect(company?.cik).toBe("0001067983");
+    }
+    expect(exactTicker("brk.a")?.ticker).toBe("BRK-A");
+  });
+
+  it("F1-1: keeps both tickers of one company (GOOG and GOOGL share a CIK)", () => {
+    expect(exactTicker("goog")?.ticker).toBe("GOOG");
+    expect(exactTicker("googl")?.ticker).toBe("GOOGL");
+    expect(exactTicker("goog")?.cik).toBe(exactTicker("googl")?.cik);
+  });
+
+  it("F1-1: duplicate ticker rows keep the first (SEC file order)", () => {
+    const dupIndex = buildCompanyIndex([
+      { cik: 111, ticker: "DUP", name: "First Co" },
+      { cik: 222, ticker: "dup", name: "Second Co" },
+    ]);
+    expect(dupIndex).toHaveLength(1);
+    const result = searchCompanies(dupIndex, "dup");
+    expect(result).toEqual({
+      kind: "exact",
+      company: expect.objectContaining({ cik: "0000000111", name: "First Co" }),
+    });
+  });
+
+  it("F1-1: a blank or punctuation-only query is empty_query, not an error", () => {
+    for (const query of ["", "   ", "--.."]) {
+      expect(searchCompanies(index, query)).toEqual({ kind: "empty_query" });
+    }
+  });
+});

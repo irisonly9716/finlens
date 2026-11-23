@@ -1,0 +1,17 @@
+{
+  "0": {"cik_str":320193,"ticker":"AAPL","title":"Apple Inc."},
+  "1": {"cik_str":789019,"ticker":"MSFT","title":"MICROSOFT CORP"},
+  "3": {"cik_str":1652044,"ticker":"GOOGL","title":"Alphabet Inc."},
+  "8": {"cik_str":1067983,"ticker":"BRK-B","title":"BERKSHIRE HATHAWAY INC"},
+  "39": {"cik_str":6951,"ticker":"AMAT","title":"APPLIED MATERIALS INC /DE"},
+  "73": {"cik_str":820313,"ticker":"APH","title":"AMPHENOL CORP /DE/"},
+  "121": {"cik_str":1751008,"ticker":"APP","title":"AppLovin Corp"},
+  "910": {"cik_str":109563,"ticker":"AIT","title":"APPLIED INDUSTRIAL TECHNOLOGIES INC"},
+  "1479": {"cik_str":1418121,"ticker":"APLE","title":"Apple Hospitality REIT, Inc."},
+  "1514": {"cik_str":1144879,"ticker":"APLD","title":"Applied Digital Corp."},
+  "1645": {"cik_str":1158114,"ticker":"AAOI","title":"APPLIED OPTOELECTRONICS, INC."},
+  "1856": {"cik_str":1158449,"ticker":"AAP","title":"ADVANCE AUTO PARTS INC"},
+  "7408": {"cik_str":1652044,"ticker":"GOOG","title":"Alphabet Inc."},
+  "7410": {"cik_str":1067983,"ticker":"BRK-A","title":"BERKSHIRE HATHAWAY INC"},
+  "9250": {"cik_str":879911,"ticker":"AERGP","title":"APPLIED ENERGETICS, INC."}
+}
