@@ -15,14 +15,24 @@ export type ReportedMetric =
 
 /** For each period, the first concept in the list with a value wins. */
 export const CONCEPT_LISTS: Readonly<Record<ReportedMetric, readonly string[]>> = {
-  // RED stub: lists are filled in the green step.
-  revenue: [],
-  cost_of_revenue: [],
-  gross_profit: [],
-  operating_income: [],
-  net_income: [],
-  operating_cash_flow: [],
-  capex: [],
-  cash: [],
-  stockholders_equity: [],
+  revenue: [
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+    "SalesRevenueNet",
+  ],
+  cost_of_revenue: ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"],
+  gross_profit: ["GrossProfit"],
+  operating_income: ["OperatingIncomeLoss"],
+  net_income: ["NetIncomeLoss"],
+  operating_cash_flow: [
+    "NetCashProvidedByUsedInOperatingActivities",
+    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+  ],
+  capex: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
+  cash: ["CashAndCashEquivalentsAtCarryingValue", "Cash"],
+  stockholders_equity: [
+    "StockholdersEquity",
+    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+  ],
 };
