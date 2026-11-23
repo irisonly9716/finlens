@@ -123,7 +123,8 @@ summary, related_metric?, source_ids[]}` and up to 3 `watch_items` `{text, sourc
 - **SEC EDGAR APIs** (`data.sec.gov`, public data). Fair-access rules: every request
   sends a descriptive `User-Agent` with contact email, max 10 requests/second; all calls
   are server-side and cached.
-  - `company_tickers.json` — ticker → CIK.
+  - `https://www.sec.gov/files/company_tickers.json` — ticker → CIK (served from
+    `www.sec.gov`, not `data.sec.gov`; same `User-Agent` rules).
   - `submissions/CIK##########.json` — name, SIC code, recent filings (form, date,
     accession number, primary document, 8-K items).
   - `api/xbrl/companyfacts/CIK##########.json` — every XBRL fact with value, period,
