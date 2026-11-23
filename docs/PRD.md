@@ -61,8 +61,10 @@ debt-to-equity. Shown for the last 5 fiscal years and the last 4 quarters.
   the list.
 - **F2-2 Derived Q4.** When a fiscal year value and its 9-month year-to-date value both
   exist but Q4 is not reported, Q4 = FY − 9M YTD, marked `derived`.
-- **F2-3 Fiscal periods.** Periods are labeled by the company's fiscal year and quarter
-  (`fy`/`fp`), not the calendar.
+- **F2-3 Fiscal periods.** Periods are labeled by the company's fiscal year and quarter,
+  not the calendar. A fact's fiscal period comes from its own `start`/`end` dates
+  measured against the company's fiscal year-end, not from the companyfacts `fy`/`fp`
+  fields: those describe the filing, so comparative facts carry the filing's year.
 - **F2-4 Missing inputs.** A metric whose inputs are missing is `null` with a reason
   (`no_data`, `missing_input:<name>`), never `0`.
 - **F2-5 Restatements.** When the same period appears in several filings, the value
