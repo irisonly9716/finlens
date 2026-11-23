@@ -27,20 +27,42 @@ export type SearchResult =
   | { kind: "no_match"; suggestions: CompanyEntry[] };
 
 export function padCik(cik: number): string {
-  void cik;
-  return "";
+  return String(cik).padStart(10, "0");
 }
 
+/** Uppercase and drop everything but A–Z and 0–9: "brk.b", "BRK B", "BRK-B" → "BRKB". */
+export function normalizeTicker(input: string): string {
+  return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/** Builds the search index in SEC file order; a repeated ticker keeps its first row. */
 export function buildCompanyIndex(rows: readonly TickerRow[]): CompanyEntry[] {
-  void rows;
-  return [];
+  const seen = new Set<string>();
+  const index: CompanyEntry[] = [];
+  for (const row of rows) {
+    const tickerKey = normalizeTicker(row.ticker);
+    if (tickerKey === "" || seen.has(tickerKey)) continue;
+    seen.add(tickerKey);
+    index.push({
+      cik: padCik(row.cik),
+      ticker: row.ticker,
+      name: row.name,
+      tickerKey,
+      nameKey: row.name.toLowerCase(),
+    });
+  }
+  return index;
 }
 
 export function searchCompanies(
   index: readonly CompanyEntry[],
   query: string,
 ): SearchResult {
-  void index;
-  void query;
+  const tickerQuery = normalizeTicker(query);
+  if (tickerQuery === "") return { kind: "empty_query" };
+
+  const exact = index.find((c) => c.tickerKey === tickerQuery);
+  if (exact) return { kind: "exact", company: exact };
+
   return { kind: "no_match", suggestions: [] };
 }
