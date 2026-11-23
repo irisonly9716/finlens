@@ -84,3 +84,34 @@ Explore phase, 2026-11-23. No code written. Next step: plan in `docs/plans/`.
 - Ticker formats: SEC uses `BRK-B`; users type `BRK.B`/`brk b`. Several tickers share a
   CIK (GOOG/GOOGL); a few rows may share a ticker string — dedupe rules needed.
 - New dependencies (`zod`, maybe `server-only`) need user approval to install.
+
+## Verification (2026-11-23, after implementation)
+
+Automated: `npm test` 34 passing (16 domain `F1-*` tests, 8 SEC adapter tests with mocked
+fetch, 5 search-param tests, 5 jsdom `SearchResults` tests); `npm run lint`,
+`npm run typecheck`, `npm run build` green. Build makes no SEC request (`/search` and
+`/company/[ticker]` are partial prerenders; data streams per request).
+
+Manual, `npm run dev` with the real SEC ticker file (`SEC_USER_AGENT` in `.env.local`):
+
+| AC | Request | Result |
+|---|---|---|
+| F1-1 | `/search?q=aapl`, `?q=AAPL` | redirect → `/company/AAPL` (Apple Inc., CIK 0000320193) |
+| F1-1 | `?q=brk.b`, `?q=BRK B` | redirect → `/company/BRK-B` (CIK 0001067983) |
+| F1-1 | `/company/aapl`, `/company/BRK.B` | redirect to canonical SEC spelling |
+| F1-2 | `?q=apple` | 2 matches (AAPL, APLE) |
+| F1-2 | `?q=micro`, `?q=bank`, `?q=appl` | exactly 10 results each; `micro` starts MSFT, MU, MCHP |
+| F1-3 | `?q=MSFY` | 200, "No company matches “MSFY”", "Did you mean:" → MSFT |
+| F1-3 | `?q=ZZZZZZ` | 200, empty state with spelling hint, no suggestions |
+| F1-3 | `/company/ZZZZZ` | redirect → `/search?q=ZZZZZ` (empty state, not 404) |
+| — | `SEC_USER_AGENT` unset | every page shows "SEC company data is temporarily unavailable", no crash |
+
+Notes:
+- Redirects come from inside `<Suspense>`, so Next streams them (HTTP 200 + client-side
+  redirect, per `redirect.md`), not an HTTP 307. Fine for users; an E2E test should assert
+  the final URL rather than the status code.
+- Single letters are often exact tickers (`a` → Agilent), so `?q=a` redirects.
+- Not checked yet: the form with JavaScript disabled and keyboard-only use in a real
+  browser (Playwright E2E later).
+- A Notepad-saved `.env.local` was not parsed at first; recreating it as UTF-8 fixed
+  it. `next dev` also needs a restart to pick up `.env.local` edits here.
