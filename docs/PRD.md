@@ -102,6 +102,11 @@ summary, related_metric?, source_ids[]}` and up to 3 `watch_items` `{text, sourc
   so.
 - **F5-5** The brief always shows the disclaimer "For informational purposes only. Not
   investment advice."
+- **F5-6 8-K categories.** 8-K item codes map to event categories before the model
+  sees them: 2.02 earnings; 5.02 leadership change; 1.01/1.02 material agreement;
+  2.01 acquisition or disposition; 2.05/2.06 restructuring or impairment; 4.01/4.02
+  auditor change or non-reliance (high severity); 1.05 cybersecurity incident (high
+  severity). Items 7.01, 8.01 and 9.01 alone are "other".
 
 ### F6 Watchlist — Must
 - **F6-1** Signed-in users can add and remove companies; the list is private
@@ -124,8 +129,28 @@ summary, related_metric?, source_ids[]}` and up to 3 `watch_items` `{text, sourc
   - `api/xbrl/companyfacts/CIK##########.json` — every XBRL fact with value, period,
     `fy`, `fp`, form, filing date and accession number.
   - `api/xbrl/frames/...` — one concept across all companies for one period (peers).
-- **News headlines** — provider to be confirmed (see §11). Store headline, publisher,
-  URL and publish time only; never article bodies.
+  - No API key. EDGAR content is "free to access and reuse"; cite the SEC as the source.
+  - Filing link: `https://www.sec.gov/Archives/edgar/data/{CIK}/{accession without
+    dashes}/{primaryDocument}`.
+  - Frames: `CY2025` = annual, `CY2025Q1` = one quarter's duration, `CY2025Q1I` = a
+    point-in-time (balance-sheet) value at quarter end.
+  - Official docs say `data.sec.gov` does not support CORS, so all calls go through the
+    server (which also lets us set `User-Agent` and share one rate limit).
+- **News headlines — GDELT DOC 2.0 API.** Chosen because its terms allow public,
+  unrestricted use and redistribution ("academic, commercial, or governmental"), which a
+  deployed app needs. Requirements and limits:
+  - Every page that shows GDELT headlines shows "News via the GDELT Project" with a link.
+  - No ticker filter: query the exact company name as a phrase with `sourcelang:english`;
+    drop results whose title does not contain the name.
+  - About one request per 5 seconds, and it returns HTTP 429 when busy, so news is
+    fetched by a scheduled job (curated + watchlisted companies, spaced ≥ 5 s apart) and
+    cached; page views never call GDELT directly.
+  - Store headline, publisher domain, URL and publish time only; never article bodies.
+- **Rejected news APIs** (checked 2026-11-22): NewsAPI.org free plan is "development
+  and testing … only"; Alpha Vantage news is premium-only; Finnhub, Marketaux and
+  Massive free tiers are limited to personal use, and Finnhub forbids redistributing
+  "derived results". Finnhub (ticker filter, 1 year of history) can be added later only
+  with written permission from Finnhub.
 
 ## 6. Architecture
 
@@ -196,12 +221,14 @@ Final submission: Finals Week (Dec 14–20; exact date on Canvas).
 | Companies tag the same metric with different XBRL concepts | Ordered fallback lists, admin overrides, start with curated companies |
 | SEC fair-access limits | Server-side cache, `User-Agent`, backoff on 429/403 |
 | LLM cost or made-up claims | Daily cache and caps; deterministic citation checker |
-| News licensing | Headlines and links only; a provider whose terms allow a deployed app |
+| News licensing | GDELT (terms allow redistribution) with attribution; headlines and links only |
+| GDELT throttling, name collisions | Scheduled fetch spaced ≥ 5 s, cache; exact-phrase query + title filter; 8-Ks still give a brief when news is missing |
 | Solo scope | MoSCoW; F4 and F7 can slip without breaking the core flow |
 
 ## 11. Open questions
 
-- News provider (primary + fallback) — decided after checking free-tier terms.
+- Model for F5: keep `claude-opus-5-5`, or switch `ANTHROPIC_MODEL` to a cheaper model
+  after the eval shows whether quality holds.
 - Which ~20 companies form the curated starting set (spread across 4–5 industries).
 
 ## 12. Glossary

@@ -20,8 +20,9 @@ comparison is manual, and AI summaries of news cannot be checked.
    number before it is shown.
 4. Accounts + private watchlist with change flags; industry peer percentiles (SIC code).
 
-**Data:** SEC EDGAR APIs (public data, no key) + a news headline API whose free tier
-allows a deployed app (headlines and links only). No dummy data.
+**Data:** SEC EDGAR APIs (public data, free to reuse, no key) + GDELT news headlines
+(terms allow public use and redistribution; headlines and links only, with
+attribution). No dummy data.
 
 **Stack:** Next.js + TypeScript + Tailwind, Supabase (Postgres, Auth, RLS), Vitest +
 Playwright, GitHub Actions, Vercel. Built with Claude Code.
