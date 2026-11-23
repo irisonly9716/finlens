@@ -68,7 +68,11 @@ debt-to-equity. Shown for the last 5 fiscal years and the last 4 quarters.
 - **F2-4 Missing inputs.** A metric whose inputs are missing is `null` with a reason
   (`no_data`, `missing_input:<name>`), never `0`.
 - **F2-5 Restatements.** When the same period appears in several filings, the value
-  from the latest filing is shown; earlier values stay available as history.
+  from the latest filing is shown; earlier values stay available as history. Only
+  10-K, 10-Q and 8-K filings, their amendments (10-K/A, 10-Q/A, 8-K/A) and 10-KT
+  transition reports count;
+  other forms, such as a DEF 14A proxy statement that repeats rounded figures, are
+  ignored.
 - **F2-6 Consistency check.** If gross profit and cost of revenue are both reported,
   |revenue − cost of revenue − gross profit| must be within 0.5% of revenue; otherwise
   the period gets a data-quality flag.
