@@ -47,7 +47,7 @@ npx vitest run -t "F2-2"                         # tests matching a name
   dependency is reviewed — AI can hallucinate package names). Denied: reading `.env`
   files, `git push --force`, `git reset --hard`.
 
-## Planned architecture (from PRD §6–7)
+## Planned architecture (from PRD §7)
 
 - **`src/lib/domain/`** — pure TypeScript: XBRL concept resolution (ordered fallback
   concepts + admin overrides), fiscal period alignment (`fy`/`fp`, not calendar),
