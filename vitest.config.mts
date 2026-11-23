@@ -20,5 +20,13 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
+    // Used by `npm run test:coverage` (CLAUDE.md: ≥ 80% line coverage for the domain).
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/domain/**/*.ts"],
+      exclude: ["src/lib/domain/**/*.test.ts", "src/lib/domain/__fixtures__/**"],
+      reporter: ["text", "text-summary"],
+      thresholds: { lines: 80 },
+    },
   },
 });
