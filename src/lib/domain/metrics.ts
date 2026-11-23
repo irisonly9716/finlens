@@ -39,6 +39,20 @@ interface MetricBase {
 export type MetricResult = MetricBase &
   ({ value: number; reason?: never } | { value: null; reason: MetricReason });
 
+type Inputs = Record<string, MetricInput>;
+
+/** A named value inside a formula: a reported input or another computed metric. */
+interface Operand {
+  name: string;
+  value: number | null;
+  inputs: Inputs;
+}
+
+const OPERATIONS = {
+  "/": (a: number, b: number): number => a / b,
+  "−": (a: number, b: number): number => a - b,
+} as const;
+
 /** All canonical metrics for one period key, from the output of F2-5. */
 export function computeMetrics(
   values: readonly PeriodValue[],
@@ -46,10 +60,11 @@ export function computeMetrics(
   overrides: ConceptOverrides = {},
 ): Record<CanonicalMetric, MetricResult> {
   const q4 = /^FY(\d+)Q4$/.exec(key);
+  const cache = new Map<ReportedMetric, MetricInput | undefined>();
 
   // A reported input for this period; at fiscal Q4, a derived Q4 flow (F2-2) or
   // the year-end balance (the FY instant) stands in for an unreported Q4.
-  const input = (metric: ReportedMetric): MetricInput | undefined => {
+  const lookup = (metric: ReportedMetric): MetricInput | undefined => {
     const resolved = resolveMetric(metric, values, overrides);
     const reported = resolved.find((r) => r.period.key === key);
     if (reported || !q4) return reported;
@@ -58,98 +73,79 @@ export function computeMetrics(
       resolved.find((r) => r.period.key === `FY${q4[1]}` && r.period.instant)
     );
   };
+  const input = (metric: ReportedMetric): MetricInput | undefined => {
+    if (!cache.has(metric)) cache.set(metric, lookup(metric));
+    return cache.get(metric);
+  };
+  const operand = (name: ReportedMetric): Operand => {
+    const found = input(name);
+    return { name, value: found?.value ?? null, inputs: found ? { [name]: found } : {} };
+  };
+
+  const result = (
+    metric: CanonicalMetric,
+    formula: string | null,
+    inputs: Inputs,
+    outcome: number | MetricReason,
+  ): MetricResult =>
+    typeof outcome === "number"
+      ? { metric, key, formula, inputs, value: outcome }
+      : { metric, key, formula, inputs, value: null, reason: outcome };
 
   const reported = (metric: ReportedMetric & CanonicalMetric): MetricResult => {
-    const found = input(metric);
-    const base = { metric, key, formula: null };
-    return found
-      ? { ...base, inputs: { [metric]: found }, value: found.value }
-      : { ...base, inputs: {}, value: null, reason: "no_data" };
+    const { value, inputs } = operand(metric);
+    return result(metric, null, inputs, value ?? "no_data");
   };
 
-  const derived = (
+  // `a op b`; null with the first missing operand's name.
+  const binary = (
     metric: CanonicalMetric,
-    names: readonly ReportedMetric[],
-    formula: string,
-    compute: (v: number[]) => number,
+    a: Operand,
+    op: keyof typeof OPERATIONS,
+    b: Operand,
   ): MetricResult => {
-    const inputs: Record<string, MetricInput> = {};
-    for (const name of names) {
-      const found = input(name);
-      if (found) inputs[name] = found;
-    }
-    const base = { metric, key, formula, inputs };
-    const missing = names.find((name) => !inputs[name]);
-    if (missing) return { ...base, value: null, reason: `missing_input:${missing}` };
-    return { ...base, value: compute(names.map((name) => inputs[name]!.value)) };
+    const inputs = { ...a.inputs, ...b.inputs };
+    const formula = `${a.name} ${op} ${b.name}`;
+    if (a.value === null) return result(metric, formula, inputs, `missing_input:${a.name}`);
+    if (b.value === null) return result(metric, formula, inputs, `missing_input:${b.name}`);
+    return result(metric, formula, inputs, OPERATIONS[op](a.value, b.value));
   };
 
+  // Term debt (LongTermDebt, else current + noncurrent) plus commercial paper when reported.
   const totalDebt = ((): MetricResult => {
     const longTermDebt = input("long_term_debt");
     const current = input("long_term_debt_current");
     const noncurrent = input("long_term_debt_noncurrent");
     const commercialPaper = input("commercial_paper");
-    const terms: Record<string, MetricInput> | undefined = longTermDebt
+    const terms: Inputs | undefined = longTermDebt
       ? { long_term_debt: longTermDebt }
       : current && noncurrent
         ? { long_term_debt_current: current, long_term_debt_noncurrent: noncurrent }
         : undefined;
-    if (!terms) {
-      return {
-        metric: "total_debt",
-        key,
-        formula: null,
-        inputs: {},
-        value: null,
-        reason: "missing_input:long_term_debt",
-      };
-    }
+    if (!terms) return result("total_debt", null, {}, "missing_input:long_term_debt");
     const inputs = commercialPaper ? { ...terms, commercial_paper: commercialPaper } : terms;
-    return {
-      metric: "total_debt",
-      key,
-      formula: Object.keys(inputs).join(" + "),
-      inputs,
-      value: Object.values(inputs).reduce((sum, i) => sum + i.value, 0),
-    };
+    const sum = Object.values(inputs).reduce((total, i) => total + i.value, 0);
+    return result("total_debt", Object.keys(inputs).join(" + "), inputs, sum);
   })();
 
-  const equity = input("stockholders_equity");
-  const debtToEquity: MetricResult = {
-    metric: "debt_to_equity",
-    key,
-    formula: "total_debt / stockholders_equity",
-    inputs: { ...totalDebt.inputs, ...(equity ? { stockholders_equity: equity } : {}) },
-    ...(totalDebt.value === null
-      ? { value: null, reason: "missing_input:total_debt" as const }
-      : equity
-        ? { value: totalDebt.value / equity.value }
-        : { value: null, reason: "missing_input:stockholders_equity" as const }),
-  };
-
-  const ratio = (a: number[]): number => a[0]! / a[1]!;
+  const revenue = operand("revenue");
   return {
     revenue: reported("revenue"),
     gross_profit: reported("gross_profit"),
-    gross_margin: derived("gross_margin", ["gross_profit", "revenue"], "gross_profit / revenue", ratio),
+    gross_margin: binary("gross_margin", operand("gross_profit"), "/", revenue),
     operating_income: reported("operating_income"),
-    operating_margin: derived(
-      "operating_margin",
-      ["operating_income", "revenue"],
-      "operating_income / revenue",
-      ratio,
-    ),
+    operating_margin: binary("operating_margin", operand("operating_income"), "/", revenue),
     net_income: reported("net_income"),
-    net_margin: derived("net_margin", ["net_income", "revenue"], "net_income / revenue", ratio),
+    net_margin: binary("net_margin", operand("net_income"), "/", revenue),
     operating_cash_flow: reported("operating_cash_flow"),
-    free_cash_flow: derived(
-      "free_cash_flow",
-      ["operating_cash_flow", "capex"],
-      "operating_cash_flow − capex",
-      (a) => a[0]! - a[1]!,
-    ),
+    free_cash_flow: binary("free_cash_flow", operand("operating_cash_flow"), "−", operand("capex")),
     cash: reported("cash"),
     total_debt: totalDebt,
-    debt_to_equity: debtToEquity,
+    debt_to_equity: binary(
+      "debt_to_equity",
+      { name: "total_debt", value: totalDebt.value, inputs: totalDebt.inputs },
+      "/",
+      operand("stockholders_equity"),
+    ),
   };
 }
