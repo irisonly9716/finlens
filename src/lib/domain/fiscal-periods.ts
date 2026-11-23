@@ -38,28 +38,31 @@ const DAY_MS = 86_400_000;
 const EXTRAPOLATION_TOLERANCE_DAYS = 7;
 const QUARTER_DAYS = 365.25 / 4;
 
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+
+type DurationKind = "Q" | "6M" | "9M" | "FY";
+
 /** Duration in days (end − start) → kind. Wide enough for 13/14-week quarters. */
-const DURATIONS: readonly { min: number; max: number; kind: "Q" | "6M" | "9M" | "FY" }[] = [
+const DURATIONS: readonly { min: number; max: number; kind: DurationKind }[] = [
   { min: 80, max: 100, kind: "Q" },
   { min: 170, max: 190, kind: "6M" },
   { min: 260, max: 285, kind: "9M" },
   { min: 350, max: 380, kind: "FY" },
 ];
 
-function toDays(iso: string): number {
+/** ISO date → days since the epoch (UTC), optionally shifted by whole years. */
+function toDays(iso: string, addYears = 0): number {
   const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y, m - 1, d) / DAY_MS;
+  return Date.UTC(y + addYears, m - 1, d) / DAY_MS;
 }
 
-function addYears(iso: string, years: number): number {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y + years, m - 1, d) / DAY_MS;
+function durationKind(start: string, end: string): DurationKind | null {
+  const days = toDays(end) - toDays(start);
+  return DURATIONS.find((d) => days >= d.min && days <= d.max)?.kind ?? null;
 }
 
 function isAnnual(fact: XbrlFact): boolean {
-  if (fact.start === null) return false;
-  const days = toDays(fact.end) - toDays(fact.start);
-  return days >= 350 && days <= 380;
+  return fact.start !== null && durationKind(fact.start, fact.end) === "FY";
 }
 
 /** Learn fiscal year-ends from each 10-K's own period (not its comparatives). */
@@ -92,7 +95,7 @@ function yearEndOf(fy: number, yearEnds: readonly FiscalYearEnd[]): { day: numbe
   if (known) return { day: toDays(known.end), tolerance: 0 };
   const below = yearEnds.filter((y) => y.fy < fy).at(-1);
   const anchor = below ?? yearEnds[0];
-  return { day: addYears(anchor.end, fy - anchor.fy), tolerance: EXTRAPOLATION_TOLERANCE_DAYS };
+  return { day: toDays(anchor.end, fy - anchor.fy), tolerance: EXTRAPOLATION_TOLERANCE_DAYS };
 }
 
 /** The fiscal year whose year-end is the first on or after `day`. */
@@ -120,7 +123,7 @@ export function fiscalPeriodOf(
   const quarterOfYear = (): FiscalPeriodKind => {
     const sincePriorYearEnd = end - yearEndOf(fy - 1, yearEnds).day;
     const q = Math.min(4, Math.max(1, Math.round(sincePriorYearEnd / QUARTER_DAYS)));
-    return `Q${q}` as FiscalPeriodKind;
+    return QUARTERS[q - 1];
   };
 
   if (fact.start === null) {
@@ -129,10 +132,9 @@ export function fiscalPeriodOf(
     return { period: { fy, fp, instant: true, key: periodKey(fy, fp) } };
   }
 
-  const days = end - toDays(fact.start);
-  const match = DURATIONS.find((d) => days >= d.min && days <= d.max);
-  if (!match) return { period: null, reason: "unrecognized_duration" };
-  const fp = match.kind === "Q" ? quarterOfYear() : match.kind;
+  const kind = durationKind(fact.start, fact.end);
+  if (kind === null) return { period: null, reason: "unrecognized_duration" };
+  const fp = kind === "Q" ? quarterOfYear() : kind;
   return { period: { fy, fp, instant: false, key: periodKey(fy, fp) } };
 }
 
