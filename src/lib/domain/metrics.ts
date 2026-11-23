@@ -21,7 +21,11 @@ export type CanonicalMetric =
   | "total_debt"
   | "debt_to_equity";
 
-export type MetricReason = "no_data" | `missing_input:${string}`;
+export type MetricReason =
+  | "no_data"
+  | `missing_input:${string}`
+  /** A ratio whose denominator is a reported 0. */
+  | `zero_denominator:${string}`;
 
 /** A reported value (F2-1) or a derived Q4 (F2-2), for source drill-down (F3). */
 export type MetricInput = ResolvedValue | DerivedQ4;
@@ -108,6 +112,9 @@ export function computeMetrics(
     const formula = `${a.name} ${op} ${b.name}`;
     if (a.value === null) return result(metric, formula, inputs, `missing_input:${a.name}`);
     if (b.value === null) return result(metric, formula, inputs, `missing_input:${b.name}`);
+    if (op === "/" && b.value === 0) {
+      return result(metric, formula, inputs, `zero_denominator:${b.name}`);
+    }
     return result(metric, formula, inputs, OPERATIONS[op](a.value, b.value));
   };
 
