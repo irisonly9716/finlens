@@ -86,14 +86,47 @@ export function searchCompanies(
   const companies = [...tickerHits, ...nameHits].slice(0, MAX_MATCHES);
   if (companies.length > 0) return { kind: "matches", companies };
 
-  return { kind: "no_match", suggestions: [] };
+  return { kind: "no_match", suggestions: suggestCompanies(index, query) };
 }
 
+const MAX_SUGGESTIONS = 5;
+
+/** True when a and b differ by exactly one insertion, deletion or substitution. */
+function isOneEditApart(a: string, b: string): boolean {
+  if (a === b || Math.abs(a.length - b.length) > 1) return false;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  let i = 0;
+  while (i < short.length && short[i] === long[i]) i++;
+  // Skip the first difference: substitution when lengths match, else insertion.
+  const restShort = short.length === long.length ? short.slice(i + 1) : short.slice(i);
+  return restShort === long.slice(i + 1);
+}
+
+/**
+ * F1-3 suggestions: tickers one edit away from the query (APPL → AAPL), then ticker
+ * prefix matches, then name prefix matches; SEC file order within each group, no
+ * duplicates, at most 5.
+ */
 export function suggestCompanies(
   index: readonly CompanyEntry[],
   query: string,
 ): CompanyEntry[] {
-  void index;
-  void query;
-  return [];
+  const tickerQuery = normalizeTicker(query);
+  const nameQuery = normalizeName(query);
+  if (tickerQuery === "" && nameQuery === "") return [];
+
+  const groups = [
+    index.filter((c) => tickerQuery !== "" && isOneEditApart(c.tickerKey, tickerQuery)),
+    index.filter((c) => tickerQuery !== "" && c.tickerKey.startsWith(tickerQuery)),
+    index.filter((c) => nameQuery !== "" && c.nameKey.startsWith(nameQuery)),
+  ];
+  const seen = new Set<CompanyEntry>();
+  const suggestions: CompanyEntry[] = [];
+  for (const company of groups.flat()) {
+    if (seen.has(company)) continue;
+    seen.add(company);
+    suggestions.push(company);
+    if (suggestions.length === MAX_SUGGESTIONS) break;
+  }
+  return suggestions;
 }
