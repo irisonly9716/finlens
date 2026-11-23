@@ -1,6 +1,6 @@
 // F2-5 restatements: one value per concept and fiscal period, taken from the latest
 // filing; earlier filings' values stay available as history. Pure; no I/O.
-import type { FiscalCalendar, FiscalPeriod } from "./fiscal-periods";
+import { fiscalPeriodOf, type FiscalCalendar, type FiscalPeriod } from "./fiscal-periods";
 import type { XbrlFact } from "./xbrl-facts";
 
 /**
@@ -31,7 +31,23 @@ export function latestByPeriod(
   facts: readonly XbrlFact[],
   calendar: FiscalCalendar,
 ): PeriodValue[] {
-  void facts;
-  void calendar;
-  return []; // RED stub
+  const groups = new Map<string, { concept: string; period: FiscalPeriod; facts: XbrlFact[] }>();
+  for (const fact of facts) {
+    if (!STATEMENT_FORMS.includes(fact.form)) continue;
+    const { period } = fiscalPeriodOf(fact, calendar);
+    if (period === null) continue;
+    const id = `${fact.concept}|${period.key}`;
+    const group = groups.get(id);
+    if (group) group.facts.push(fact);
+    else groups.set(id, { concept: fact.concept, period, facts: [fact] });
+  }
+  return [...groups.values()].map(({ concept, period, facts: group }) => {
+    const [fact, ...history] = [...group].sort(newestFirst);
+    return { concept, period, fact, history };
+  });
+}
+
+/** Latest filing date first; same day → higher accession number first (deterministic). */
+function newestFirst(a: XbrlFact, b: XbrlFact): number {
+  return b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn);
 }
