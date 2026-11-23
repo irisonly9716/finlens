@@ -4,7 +4,7 @@ import jpm from "./__fixtures__/jpm-companyfacts.json";
 import { allFacts } from "./__fixtures__/load-facts";
 import { buildFiscalCalendar } from "./fiscal-periods";
 import { computeMetrics, type CanonicalMetric } from "./metrics";
-import { latestByPeriod } from "./restatements";
+import { latestByPeriod, type PeriodValue } from "./restatements";
 
 // Real data: Apple reports every input; JPMorgan (a bank) reports no gross profit,
 // operating income or capex, no LongTermDebt after FY2014, cash only for FY2018, and
@@ -112,5 +112,22 @@ describe("F2-4 fiscal Q4", () => {
     expect(m.net_income.value).toBe((58471 - 44466) * M);
     expect(m.revenue).toMatchObject({ value: null, reason: "no_data" });
     expect(m.net_margin).toMatchObject({ value: null, reason: "missing_input:revenue" });
+  });
+});
+
+describe("F2-4 zero denominators", () => {
+  it("F2-4: a margin is null with a reason when revenue is 0", () => {
+    // Apple FY2024 with revenue edited to 0 in a copy.
+    const zeroRevenue: PeriodValue[] = appleValues.map((v) =>
+      v.concept === "RevenueFromContractWithCustomerExcludingAssessedTax" && v.period.key === "FY2024"
+        ? { ...v, fact: { ...v.fact, val: 0 } }
+        : v,
+    );
+    const m = computeMetrics(zeroRevenue, "FY2024");
+    expect(m.revenue.value).toBe(0); // a reported 0 is a value, not missing
+    for (const metric of ["gross_margin", "operating_margin", "net_margin"] as const) {
+      expect(m[metric]).toMatchObject({ value: null, reason: "zero_denominator:revenue" });
+    }
+    expect(m.free_cash_flow.value).toBe((118254 - 9447) * M); // non-ratio metrics unaffected
   });
 });
