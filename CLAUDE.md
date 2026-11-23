@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 FinLens (CS 6983 Project 3, solo): a Next.js app showing source-traceable financial
 metrics for US public companies from SEC EDGAR XBRL data, industry peer percentiles, and
 an AI "recent developments" brief whose claims are checked against cited sources.
-`docs/proposal.md` is the approved one-page proposal. The spec (feature IDs F1–F7 and
-acceptance-criteria IDs such as `F2-2`, written to map directly onto tests):
+The spec (feature IDs F1–F7 and acceptance-criteria IDs such as `F2-2`, written to map
+directly onto tests):
 
 @docs/PRD.md
 
