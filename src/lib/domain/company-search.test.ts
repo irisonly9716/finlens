@@ -72,3 +72,66 @@ describe("F1-1 ticker lookup", () => {
     }
   });
 });
+
+function matchTickers(idx: readonly CompanyEntry[], query: string): string[] | null {
+  const result = searchCompanies(idx, query);
+  return result.kind === "matches" ? result.companies.map((c) => c.ticker) : null;
+}
+
+describe("F1-2 name prefix search", () => {
+  it("F1-2: name prefix ignores case and punctuation", () => {
+    expect(matchTickers(index, "apple")).toEqual(["AAPL", "APLE"]);
+    expect(matchTickers(index, "APPLE INC")).toEqual(["AAPL"]);
+    expect(matchTickers(index, "Apple Inc.")).toEqual(["AAPL"]);
+    expect(matchTickers(index, "apple   hospitality reit inc")).toEqual(["APLE"]);
+    expect(matchTickers(index, "applied materials inc de")).toEqual(["AMAT"]);
+  });
+
+  it("F1-2: keeps SEC file order within name matches", () => {
+    expect(matchTickers(index, "appl")).toEqual([
+      "AAPL",
+      "AMAT",
+      "APP",
+      "AIT",
+      "APLE",
+      "APLD",
+      "AAOI",
+      "AERGP",
+    ]);
+  });
+
+  it("F1-2: ranks ticker prefix matches above name prefix matches, without duplicates", () => {
+    // Ticker prefix "AP": APH, APP, APLE, APLD. Name prefix "ap" adds the rest;
+    // AppLovin (APP), Apple Hospitality (APLE) and Applied Digital (APLD) match
+    // both ways but appear once, in the ticker group.
+    expect(matchTickers(index, "ap")).toEqual([
+      "APH",
+      "APP",
+      "APLE",
+      "APLD",
+      "AAPL",
+      "AMAT",
+      "AIT",
+      "AAOI",
+      "AERGP",
+    ]);
+  });
+
+  it("F1-2: returns at most 10 matches", () => {
+    const many = buildCompanyIndex(
+      Array.from({ length: 15 }, (_, i) => ({
+        cik: 1000 + i,
+        ticker: `X${i + 1}`,
+        name: `Acme Holdings ${i + 1}`,
+      })),
+    );
+    const tickers = matchTickers(many, "acme");
+    expect(tickers).toHaveLength(10);
+    expect(tickers).toEqual(Array.from({ length: 10 }, (_, i) => `X${i + 1}`));
+  });
+
+  it("F1-2: matches prefixes only, not substrings", () => {
+    expect(searchCompanies(index, "materials").kind).toBe("no_match");
+    expect(searchCompanies(index, "corp").kind).toBe("no_match");
+  });
+});
