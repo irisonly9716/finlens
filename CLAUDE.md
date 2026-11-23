@@ -41,7 +41,11 @@ npx vitest run -t "F2-2"                         # tests matching a name
   top of the file.
 - `.gitattributes` forces LF line endings (dev machine is Windows).
 - Claude Code's sandbox is not available on native Windows, so permissions use
-  allowlists in `.claude/settings.json`.
+  allowlists in `.claude/settings.json` (shared; same rules for Bash and PowerShell).
+  Allowed: tests, lint, typecheck, and git status/diff/log/show/add/commit — the routine
+  loop. Asked: `git push` (publishing is the user's call) and `npm install` (every new
+  dependency is reviewed — AI can hallucinate package names). Denied: reading `.env`
+  files, `git push --force`, `git reset --hard`.
 
 ## Planned architecture (from PRD §6–7)
 
