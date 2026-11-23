@@ -1,6 +1,6 @@
 // F2-1 metric definitions: the reported inputs of the canonical metrics, each with
 // an ordered list of us-gaap concepts. Derived metrics (margins, free cash flow,
-// ratios) and debt are defined in F2-4. Pure data.
+// ratios, total debt) are computed in F2-4 (metrics.ts). Pure data.
 
 export type ReportedMetric =
   | "revenue"
@@ -11,7 +11,11 @@ export type ReportedMetric =
   | "operating_cash_flow"
   | "capex"
   | "cash"
-  | "stockholders_equity";
+  | "stockholders_equity"
+  | "long_term_debt"
+  | "long_term_debt_current"
+  | "long_term_debt_noncurrent"
+  | "commercial_paper";
 
 /** For each period, the first concept in the list with a value wins. */
 export const CONCEPT_LISTS: Readonly<Record<ReportedMetric, readonly string[]>> = {
@@ -35,4 +39,9 @@ export const CONCEPT_LISTS: Readonly<Record<ReportedMetric, readonly string[]>> 
     "StockholdersEquity",
     "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
   ],
+  // Total debt components (F2-4): LongTermDebt includes its current portion.
+  long_term_debt: ["LongTermDebt"],
+  long_term_debt_current: ["LongTermDebtCurrent"],
+  long_term_debt_noncurrent: ["LongTermDebtNoncurrent"],
+  commercial_paper: ["CommercialPaper"],
 };
