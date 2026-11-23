@@ -88,3 +88,12 @@ export function searchCompanies(
 
   return { kind: "no_match", suggestions: [] };
 }
+
+export function suggestCompanies(
+  index: readonly CompanyEntry[],
+  query: string,
+): CompanyEntry[] {
+  void index;
+  void query;
+  return [];
+}

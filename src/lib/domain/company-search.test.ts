@@ -4,6 +4,7 @@ import {
   buildCompanyIndex,
   padCik,
   searchCompanies,
+  suggestCompanies,
   type CompanyEntry,
   type TickerRow,
 } from "./company-search";
@@ -133,5 +134,60 @@ describe("F1-2 name prefix search", () => {
   it("F1-2: matches prefixes only, not substrings", () => {
     expect(searchCompanies(index, "materials").kind).toBe("no_match");
     expect(searchCompanies(index, "corp").kind).toBe("no_match");
+  });
+});
+
+function suggestionTickers(query: string): string[] | null {
+  const result = searchCompanies(index, query);
+  return result.kind === "no_match" ? result.suggestions.map((c) => c.ticker) : null;
+}
+
+describe("F1-3 suggestions for unknown queries", () => {
+  it("F1-3: APPL suggests AAPL (edit distance 1)", () => {
+    const tickers = suggestCompanies(index, "APPL").map((c) => c.ticker);
+    expect(tickers[0]).toBe("AAPL");
+  });
+
+  it("F1-3: covers substitution, insertion and deletion", () => {
+    expect(suggestionTickers("MSFY")).toEqual(["MSFT"]); // substitution
+    expect(suggestionTickers("MSFTT")).toEqual(["MSFT"]); // extra letter typed
+    expect(suggestionTickers("msft x")).toEqual(["MSFT"]); // punctuation ignored first
+    expect(suggestCompanies(index, "AAL").map((c) => c.ticker)).toContain("AAPL"); // missing letter
+  });
+
+  it("F1-3: distance-1 tickers come first (SEC order), then ticker/name prefix matches", () => {
+    // Distance 1 from APPL: AAPL (substitution), APP (deletion). Then name prefix
+    // "appl" in file order, skipping the two already listed.
+    expect(suggestCompanies(index, "APPL").map((c) => c.ticker)).toEqual([
+      "AAPL",
+      "APP",
+      "AMAT",
+      "AIT",
+      "APLE",
+    ]);
+  });
+
+  it("F1-3: returns at most 5 suggestions", () => {
+    const many = buildCompanyIndex(
+      Array.from({ length: 9 }, (_, i) => ({
+        cik: 2000 + i,
+        ticker: `QZ${i + 1}`,
+        name: `Quartz ${i + 1}`,
+      })),
+    );
+    // "QZ" is distance 1 from every "QZn" ticker.
+    expect(suggestCompanies(many, "QZ")).toHaveLength(5);
+  });
+
+  it("F1-3: unknown query returns no_match with suggestions, never throws", () => {
+    expect(searchCompanies(index, "BRK.C")).toEqual({
+      kind: "no_match",
+      suggestions: [
+        expect.objectContaining({ ticker: "BRK-B" }),
+        expect.objectContaining({ ticker: "BRK-A" }),
+      ],
+    });
+    expect(searchCompanies(index, "ZZZZZZ")).toEqual({ kind: "no_match", suggestions: [] });
+    expect(suggestCompanies(index, "")).toEqual([]);
   });
 });
