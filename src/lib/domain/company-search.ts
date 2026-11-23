@@ -77,16 +77,46 @@ export function searchCompanies(
   const exact = index.find((c) => c.tickerKey === tickerQuery);
   if (exact) return { kind: "exact", company: exact };
 
-  const nameQuery = normalizeName(query);
-  const tickerHits = index.filter((c) => c.tickerKey.startsWith(tickerQuery));
-  const inTickerHits = new Set(tickerHits);
-  const nameHits = index.filter(
-    (c) => nameQuery !== "" && c.nameKey.startsWith(nameQuery) && !inTickerHits.has(c),
+  const companies = rankedMatches(
+    index,
+    [tickerPrefixOf(tickerQuery), namePrefixOf(normalizeName(query))],
+    MAX_MATCHES,
   );
-  const companies = [...tickerHits, ...nameHits].slice(0, MAX_MATCHES);
   if (companies.length > 0) return { kind: "matches", companies };
 
   return { kind: "no_match", suggestions: suggestCompanies(index, query) };
+}
+
+type Matcher = (company: CompanyEntry) => boolean;
+
+function tickerPrefixOf(tickerQuery: string): Matcher {
+  return (c) => tickerQuery !== "" && c.tickerKey.startsWith(tickerQuery);
+}
+
+function namePrefixOf(nameQuery: string): Matcher {
+  return (c) => nameQuery !== "" && c.nameKey.startsWith(nameQuery);
+}
+
+/**
+ * Companies matched by the first matcher (in index order), then the second, and so
+ * on; each company at most once, stopping at `limit`.
+ */
+function rankedMatches(
+  index: readonly CompanyEntry[],
+  matchers: readonly Matcher[],
+  limit: number,
+): CompanyEntry[] {
+  const seen = new Set<CompanyEntry>();
+  const result: CompanyEntry[] = [];
+  for (const matches of matchers) {
+    for (const company of index) {
+      if (result.length === limit) return result;
+      if (seen.has(company) || !matches(company)) continue;
+      seen.add(company);
+      result.push(company);
+    }
+  }
+  return result;
 }
 
 const MAX_SUGGESTIONS = 5;
@@ -115,18 +145,13 @@ export function suggestCompanies(
   const nameQuery = normalizeName(query);
   if (tickerQuery === "" && nameQuery === "") return [];
 
-  const groups = [
-    index.filter((c) => tickerQuery !== "" && isOneEditApart(c.tickerKey, tickerQuery)),
-    index.filter((c) => tickerQuery !== "" && c.tickerKey.startsWith(tickerQuery)),
-    index.filter((c) => nameQuery !== "" && c.nameKey.startsWith(nameQuery)),
-  ];
-  const seen = new Set<CompanyEntry>();
-  const suggestions: CompanyEntry[] = [];
-  for (const company of groups.flat()) {
-    if (seen.has(company)) continue;
-    seen.add(company);
-    suggestions.push(company);
-    if (suggestions.length === MAX_SUGGESTIONS) break;
-  }
-  return suggestions;
+  return rankedMatches(
+    index,
+    [
+      (c) => tickerQuery !== "" && isOneEditApart(c.tickerKey, tickerQuery),
+      tickerPrefixOf(tickerQuery),
+      namePrefixOf(nameQuery),
+    ],
+    MAX_SUGGESTIONS,
+  );
 }
