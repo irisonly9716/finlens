@@ -35,6 +35,19 @@ export function normalizeTicker(input: string): string {
   return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Lowercase, turn punctuation into spaces, collapse whitespace:
+ * "APPLIED MATERIALS INC /DE" → "applied materials inc de".
+ */
+export function normalizeName(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+const MAX_MATCHES = 10;
+
 /** Builds the search index in SEC file order; a repeated ticker keeps its first row. */
 export function buildCompanyIndex(rows: readonly TickerRow[]): CompanyEntry[] {
   const seen = new Set<string>();
@@ -48,7 +61,7 @@ export function buildCompanyIndex(rows: readonly TickerRow[]): CompanyEntry[] {
       ticker: row.ticker,
       name: row.name,
       tickerKey,
-      nameKey: row.name.toLowerCase(),
+      nameKey: normalizeName(row.name),
     });
   }
   return index;
@@ -63,6 +76,15 @@ export function searchCompanies(
 
   const exact = index.find((c) => c.tickerKey === tickerQuery);
   if (exact) return { kind: "exact", company: exact };
+
+  const nameQuery = normalizeName(query);
+  const tickerHits = index.filter((c) => c.tickerKey.startsWith(tickerQuery));
+  const inTickerHits = new Set(tickerHits);
+  const nameHits = index.filter(
+    (c) => nameQuery !== "" && c.nameKey.startsWith(nameQuery) && !inTickerHits.has(c),
+  );
+  const companies = [...tickerHits, ...nameHits].slice(0, MAX_MATCHES);
+  if (companies.length > 0) return { kind: "matches", companies };
 
   return { kind: "no_match", suggestions: [] };
 }
